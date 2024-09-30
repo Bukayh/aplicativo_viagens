@@ -1,0 +1,879 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  runApp(MyApp());
+}
+Future<void> _clearData() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.clear(); // Remove todos os dados salvos
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Aplicativo de Viagens',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: NomeColaboradorScreen(),
+    );
+  }
+}
+
+class NomeColaboradorScreen extends StatefulWidget {
+  @override
+  _NomeColaboradorScreenState createState() => _NomeColaboradorScreenState();
+}
+
+class _NomeColaboradorScreenState extends State<NomeColaboradorScreen> {
+  final _nomeController = TextEditingController();
+  String? _nome;
+  String? _maquinaSelecionada;
+
+  final List<String> _maquinasCaminhoes = [
+    'RSC2G43',
+    'RSC2H73',
+    'RSC7H05',
+    'RSD-8B37',
+    'RSD-8B87',
+    'Pipa',
+  ];
+
+  final List<String> _maquinasCarregadeirasEscavadeiras = [
+    'Carregadeira 556',
+    'Carregadeira 580',
+    'Escavadeira 250',
+    'Escavadeira 380',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedData(); // Carregar dados salvos ao iniciar
+  }
+    Future<void> _loadSavedData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _nome = prefs.getString('nome') ?? '';
+      _maquinaSelecionada = prefs.getString('maquinaSelecionada');
+      _nomeController.text = _nome ?? '';
+    });
+  }
+  Future<void> _saveData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('nome', _nomeController.text);
+    if (_maquinaSelecionada != null) {
+      await prefs.setString('maquinaSelecionada', _maquinaSelecionada!);
+    }
+  }
+  void _salvarNomeEMaquina() {
+    setState(() {
+      _nome = _nomeController.text;
+    });
+    _saveData();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Informe os dados'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh), // Ícone para resetar
+            onPressed: () {
+              _clearData(); // Chama a função de resetar os dados
+            },
+            tooltip: 'Resetar', // Exibe uma dica ao passar o mouse ou tocar
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(labelText: 'Selecione a máquina'),
+              value: _maquinaSelecionada,
+              items: [
+                ..._maquinasCaminhoes,
+                ..._maquinasCarregadeirasEscavadeiras
+              ].map((String maquina) {
+                return DropdownMenuItem<String>(
+                  value: maquina,
+                  child: Text(maquina),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _maquinaSelecionada = newValue;
+                });
+              },
+            ),
+            SizedBox(height: 20),
+            TextField(
+              controller: _nomeController,
+              decoration: InputDecoration(labelText: 'Nome do colaborador'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                if (_maquinaSelecionada != null &&
+                    _nomeController.text.isNotEmpty) {
+                  _salvarNomeEMaquina();
+                  if (_maquinasCaminhoes.contains(_maquinaSelecionada)) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CaminhaoScreen(
+                          nome: _nome!,
+                          maquina: _maquinaSelecionada!,
+                        ),
+                      ),
+                    );
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EscavadeiraScreen(
+                          nome: _nome!,
+                          maquina: _maquinaSelecionada!,
+                        ),
+                      ),
+                    );
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content:
+                          Text('Por favor, informe o nome e selecione a máquina.'),
+                    ),
+                  );
+                  _saveData();
+                }
+              },
+              child: Text('Entrar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CaminhaoScreen extends StatefulWidget {
+  final String nome;
+  final String maquina;
+
+  CaminhaoScreen({required this.nome, required this.maquina});
+
+  @override
+  _CaminhaoScreenState createState() => _CaminhaoScreenState();
+}
+
+class _CaminhaoScreenState extends State<CaminhaoScreen> {
+  final TextEditingController _horimetroInicialController =
+      TextEditingController();
+  final TextEditingController _kmInicialController = TextEditingController();
+  final TextEditingController _horaInicialController = TextEditingController();
+  final TextEditingController _dataController = TextEditingController();
+  String? _turnoSelecionado;
+
+  @override
+  void initState() {
+    super.initState();
+    _dataController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    _horaInicialController.text = DateFormat('HH:mm').format(DateTime.now());
+    _loadSavedData();
+    
+  }
+  Future<void> _loadSavedData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _horimetroInicialController.text = prefs.getString('horimetroInicial') ?? '';
+      _kmInicialController.text = prefs.getString('kmInicial') ?? '';
+      _turnoSelecionado = prefs.getString('turno');
+      _dataController.text = prefs.getString('data') ?? DateFormat('dd/MM/yyyy').format(DateTime.now());
+      _horaInicialController.text = prefs.getString('horaInicial') ?? DateFormat('HH:mm').format(DateTime.now());
+    });
+  }
+Future<void> _saveData() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+
+  // Salvar horímetro inicial, garantindo que não seja nulo ou vazio
+  if (_horimetroInicialController.text.isNotEmpty) {
+    await prefs.setString('horimetroInicial', _horimetroInicialController.text);
+  } else {
+    await prefs.remove('horimetroInicial'); // Remove se for vazio
+  }
+
+  // Salvar KM inicial, garantindo que não seja nulo ou vazio
+  if (_kmInicialController.text.isNotEmpty) {
+    await prefs.setString('kmInicial', _kmInicialController.text);
+  } else {
+    await prefs.remove('kmInicial'); // Remove se for vazio
+  }
+
+  // Salvar turno (usa valor padrão se não estiver selecionado)
+  await prefs.setString('turno', _turnoSelecionado ?? '1'); // Define turno 1 como padrão se nulo
+
+  // Salvar data, garantindo que não seja nulo ou vazio
+  if (_dataController.text.isNotEmpty) {
+    await prefs.setString('data', _dataController.text);
+  } else {
+    await prefs.remove('data'); // Remove se for vazio
+  }
+
+  // Salvar hora inicial, garantindo que não seja nulo ou vazio
+  if (_horaInicialController.text.isNotEmpty) {
+    await prefs.setString('horaInicial', _horaInicialController.text);
+  } else {
+    await prefs.remove('horaInicial'); // Remove se for vazio
+  }
+}
+  @override
+  void dispose() {
+    _horimetroInicialController.dispose();
+    _kmInicialController.dispose();
+    _horaInicialController.dispose();
+    _dataController.dispose();
+    super.dispose();
+    _loadSavedData();
+  }
+
+  void _navegarParaViagens() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ViagensScreen(
+          nome: widget.nome,
+          maquina: widget.maquina,
+          horimetroInicial: _horimetroInicialController.text,
+          kmInicial: _kmInicialController.text,
+          turno: _turnoSelecionado!,
+          data: _dataController.text,
+          horaInicial: _horaInicialController.text,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Dados do Caminhão: ${widget.maquina}'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(
+                controller: _horimetroInicialController,
+                decoration: InputDecoration(labelText: 'Horímetro Inicial'),
+                keyboardType: TextInputType.number,
+              ),
+              SizedBox(height: 20),
+              TextField(
+                controller: _kmInicialController,
+                decoration: InputDecoration(labelText: 'KM Inicial'),
+                keyboardType: TextInputType.number,
+              ),
+              SizedBox(height: 20),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(labelText: 'Turno'),
+                value: _turnoSelecionado,
+                items: ['1', '2', '3'].map((String turno) {
+                  return DropdownMenuItem<String>(
+                    value: turno,
+                    child: Text(turno),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _turnoSelecionado = newValue;
+                  });
+                },
+              ),
+              SizedBox(height: 20),
+              TextField(
+                controller: _dataController,
+                decoration: InputDecoration(labelText: 'Data'),
+                readOnly: true,
+                onTap: () async {
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
+                  if (pickedDate != null) {
+                    setState(() {
+                      _dataController.text =
+                          DateFormat('dd/MM/yyyy').format(pickedDate);
+                    });
+                  }
+                },
+              ),
+              SizedBox(height: 20),
+              TextField(
+                controller: _horaInicialController,
+                decoration: InputDecoration(labelText: 'Hora Inicial'),
+                readOnly: true,
+                onTap: () async {
+                  TimeOfDay? pickedTime = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                  );
+                  if (pickedTime != null) {
+                    setState(() {
+                      _horaInicialController.text =
+                          pickedTime.format(context).toString();
+                    });
+                  }
+                },
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  if (_horimetroInicialController.text.isNotEmpty &&
+                      _kmInicialController.text.isNotEmpty &&
+                      _turnoSelecionado != null &&
+                      _dataController.text.isNotEmpty &&
+                      _horaInicialController.text.isNotEmpty) {
+                    _navegarParaViagens();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            'Por favor, preencha todos os campos antes de continuar.'),
+                      ),
+                    );
+                  }
+                  _saveData();
+                },
+                child: Text('Próximo'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class EscavadeiraScreen extends StatefulWidget {
+  final String nome;
+  final String maquina;
+
+  EscavadeiraScreen({required this.nome, required this.maquina});
+
+  @override
+  _EscavadeiraScreenState createState() => _EscavadeiraScreenState();
+}
+
+class _EscavadeiraScreenState extends State<EscavadeiraScreen> {
+  final TextEditingController _horimetroInicialController =
+      TextEditingController();
+  final TextEditingController _horaInicialController = TextEditingController();
+  final TextEditingController _dataController = TextEditingController();
+  String? _turnoSelecionado;
+
+  @override
+  void initState() {
+    super.initState();
+    _dataController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    _horaInicialController.text = DateFormat('HH:mm').format(DateTime.now());
+    _loadSavedData();
+  }
+    Future<void> _loadSavedData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _horimetroInicialController.text = prefs.getString('horimetroInicial') ?? '';
+      _turnoSelecionado = prefs.getString('turno');
+      _dataController.text = prefs.getString('data') ?? DateFormat('dd/MM/yyyy').format(DateTime.now());
+      _horaInicialController.text = prefs.getString('horaInicial') ?? DateFormat('HH:mm').format(DateTime.now());
+    });
+  }
+    Future<void> _saveData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('horimetroInicial', _horimetroInicialController.text);
+    await prefs.setString('turno', _turnoSelecionado ?? '');
+    await prefs.setString('data', _dataController.text);
+    await prefs.setString('horaInicial', _horaInicialController.text);
+  }
+  @override
+  void dispose() {
+    _horimetroInicialController.dispose();
+    _horaInicialController.dispose();
+    _dataController.dispose();
+    super.dispose();
+    _loadSavedData();
+  }
+
+  void _navegarParaViagens() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ViagensScreen(
+          nome: widget.nome,
+          maquina: widget.maquina,
+          horimetroInicial: _horimetroInicialController.text,
+          kmInicial: null, // Não aplicável para carregadeiras e escavadeiras
+          turno: _turnoSelecionado!,
+          data: _dataController.text,
+          horaInicial: _horaInicialController.text,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Dados da Máquina: ${widget.maquina}'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(
+                controller: _horimetroInicialController,
+                decoration: InputDecoration(labelText: 'Horímetro Inicial'),
+                keyboardType: TextInputType.number,
+              ),
+              SizedBox(height: 20),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(labelText: 'Turno'),
+                value: _turnoSelecionado,
+                items: ['1', '2', '3'].map((String turno) {
+                  return DropdownMenuItem<String>(
+                    value: turno,
+                    child: Text(turno),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _turnoSelecionado = newValue;
+                  });
+                },
+              ),
+              SizedBox(height: 20),
+              TextField(
+                controller: _dataController,
+                decoration: InputDecoration(labelText: 'Data'),
+                readOnly: true,
+                onTap: () async {
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
+                  if (pickedDate != null) {
+                    setState(() {
+                      _dataController.text =
+                          DateFormat('dd/MM/yyyy').format(pickedDate);
+                    });
+                  }
+                },
+              ),
+              SizedBox(height: 20),
+              TextField(
+                controller: _horaInicialController,
+                decoration: InputDecoration(labelText: 'Hora Inicial'),
+                readOnly: true,
+                onTap: () async {
+                  TimeOfDay? pickedTime = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                  );
+                  if (pickedTime != null) {
+                    setState(() {
+                      _horaInicialController.text =
+                          pickedTime.format(context).toString();
+                    });
+                  }
+                },
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  if (_horimetroInicialController.text.isNotEmpty &&
+                      _turnoSelecionado != null &&
+                      _dataController.text.isNotEmpty &&
+                      _horaInicialController.text.isNotEmpty) {
+                    _navegarParaViagens();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            'Por favor, preencha todos os campos antes de continuar.'),
+                      ),
+                    );
+                  }
+                  _saveData();
+                },
+                child: Text('Próximo'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ViagensScreen extends StatefulWidget {
+  final String nome;
+  final String maquina;
+  final String horimetroInicial;
+  final String? kmInicial;
+  final String turno;
+  final String data;
+  final String horaInicial;
+
+  ViagensScreen({
+    required this.nome,
+    required this.maquina,
+    required this.horimetroInicial,
+    this.kmInicial,
+    required this.turno,
+    required this.data,
+    required this.horaInicial,
+  });
+
+  @override
+  _ViagensScreenState createState() => _ViagensScreenState();
+}
+
+class _ViagensScreenState extends State<ViagensScreen> {
+  final List<ViagemPredefinida> _viagensPredefinidas = [
+    ViagemPredefinida(origem: 'MINA', destino: 'BRITADOR'),
+    ViagemPredefinida(origem: 'MINA', destino: 'PÁTIO ESTOQUE'),
+    ViagemPredefinida(origem: 'PÁTIO', destino: 'BRITADOR'),
+    ViagemPredefinida(origem: 'BRITA 0', destino: 'ESTRADAS INTERNAS / EXTERNAS'),
+    ViagemPredefinida(origem: 'BRITA 1', destino: 'ESTRADAS INTERNAS / EXTERNAS'),
+    ViagemPredefinida(origem: 'BRITA 2', destino: 'ESTRADAS INTERNAS / EXTERNAS'),
+    ViagemPredefinida(origem: 'BRITA 3', destino: 'ESTRADAS INTERNAS / EXTERNAS'),
+    ViagemPredefinida(origem: 'MINÉRIO CONTAMINADO', destino: 'BOTA FORA'),
+    ViagemPredefinida(origem: 'REJEITO', destino: 'ESTRADAS / BOTA FORA'),
+    ViagemPredefinida(origem: 'DECAPE', destino: 'BOTA FORA'),
+    ViagemPredefinida(origem: 'CASCALHO', destino: 'ESTRADAS'),
+  ];
+
+  List<ViagemPredefinida> _viagens = [];
+  List<ViagemAtipica> _viagensAtipicas = [];
+  int _contadorAtipicas = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _viagens = _viagensPredefinidas.map((viagem) => ViagemPredefinida(
+          origem: viagem.origem,
+          destino: viagem.destino,
+          contador: 0,
+        )).toList();
+    _carregarDados();
+  }
+ Future<void> _carregarDados() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Carregar contadores das viagens predefinidas
+    for (var i = 0; i < _viagens.length; i++) {
+      setState(() {
+        _viagens[i].contador = prefs.getInt('viagem_${i}_contador') ?? 0;
+      });
+    }
+
+    // Carregar viagens atípicas
+    setState(() {
+      _contadorAtipicas = prefs.getInt('contador_atipicas') ?? 0;
+    });
+
+    // Carregar viagens atípicas
+    for (var i = 0; i < _contadorAtipicas; i++) {
+      setState(() {
+        _viagensAtipicas.add(ViagemAtipica(
+          id: i + 1,
+          observacaoController: TextEditingController(
+            text: prefs.getString('viagem_atipica_${i}') ?? '',
+          ),
+        ));
+      });
+    }
+  }
+
+  Future<void> _salvarDados() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Salvar contadores das viagens predefinidas
+    for (var i = 0; i < _viagens.length; i++) {
+      await prefs.setInt('viagem_${i}_contador', _viagens[i].contador);
+    }
+
+    // Salvar viagens atípicas
+    await prefs.setInt('contador_atipicas', _contadorAtipicas);
+    for (var i = 0; i < _viagensAtipicas.length; i++) {
+      await prefs.setString('viagem_atipica_${i}', _viagensAtipicas[i].observacaoController.text);
+    }
+  }
+  void _adicionarViagemAtipica() {
+    setState(() {
+      _contadorAtipicas++;
+      _viagensAtipicas.add(ViagemAtipica(
+        id: _contadorAtipicas,
+        observacaoController: TextEditingController(),
+      ));
+    });
+    _salvarDados();
+  }
+
+  void _removerViagemAtipica(int id) {
+    setState(() {
+      _viagensAtipicas.removeWhere((viagem) => viagem.id == id);
+    });
+    _salvarDados();
+  }
+
+  void _incrementarViagem(int index) {
+    setState(() {
+      _viagens[index].contador++;
+    });
+    _salvarDados();
+  }
+
+  void _decrementarViagem(int index) {
+    setState(() {
+      if (_viagens[index].contador > 0) {
+        _viagens[index].contador--;
+      }
+    });
+    _salvarDados();
+  }
+
+  void _finalizarViagem() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        final TextEditingController _horimetroFinalController =
+            TextEditingController();
+        final TextEditingController _horaFinalController =
+            TextEditingController();
+        final TextEditingController _kmFinalController =
+            TextEditingController();
+
+        _horimetroFinalController.text = widget.horimetroInicial;
+        _horaFinalController.text = widget.horaInicial;
+        if (widget.kmInicial != null) {
+          _kmFinalController.text = widget.kmInicial!;
+        }
+
+        return AlertDialog(
+          title: Text('Finalizar Viagem'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextField(
+                  controller: _horimetroFinalController,
+                  decoration: InputDecoration(labelText: 'Horímetro Final'),
+                  keyboardType: TextInputType.number,
+                ),
+                SizedBox(height: 20),
+                TextField(
+                  controller: _horaFinalController,
+                  decoration: InputDecoration(labelText: 'Hora Final'),
+                  readOnly: true,
+                  onTap: () async {
+                    TimeOfDay? pickedTime = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.now(),
+                    );
+                    if (pickedTime != null) {
+                      setState(() {
+                        _horaFinalController.text =
+                            pickedTime.format(context).toString();
+                      });
+                    }
+                  },
+                ),
+                SizedBox(height: 20),
+                if (widget.kmInicial != null)
+                  TextField(
+                    controller: _kmFinalController,
+                    decoration: InputDecoration(labelText: 'KM Final'),
+                    keyboardType: TextInputType.number,
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                // Salvar e Compartilhar os Dados
+                _compartilharDados(
+                  horimetroFinal: _horimetroFinalController.text,
+                  horaFinal: _horaFinalController.text,
+                  kmFinal: widget.kmInicial != null
+                      ? _kmFinalController.text
+                      : null,
+                );
+                Navigator.of(context).pop();
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+              child: Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  void _compartilharDados({
+    required String horimetroFinal,
+    required String horaFinal,
+    String? kmFinal,
+  }) async {
+    String dados = '''
+Nome: ${widget.nome}
+Máquina: ${widget.maquina}
+Horímetro Inicial: ${widget.horimetroInicial}
+${widget.kmInicial != null ? 'KM Inicial: ${widget.kmInicial}' : ''}
+Turno: ${widget.turno}
+Data: ${widget.data}
+Hora Inicial: ${widget.horaInicial}
+
+Viagens:
+''';
+
+    for (var viagem in _viagens) {
+      if (viagem.contador > 0) {
+        dados +=
+            '- ${viagem.origem} → ${viagem.destino} x${viagem.contador}\n';
+      }
+    }
+
+    for (var atipica in _viagensAtipicas) {
+      dados +=
+          '- Viagem Atípica ${atipica.id}: ${atipica.observacaoController.text}\n';
+    }
+
+    dados += '''
+Horímetro Final: $horimetroFinal
+Hora Final: $horaFinal
+${kmFinal != null ? 'KM Final: $kmFinal' : ''}
+''';
+
+    // Salvar os dados usando shared_preferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('dados_viagem', dados);
+
+    Share.share(dados, subject: 'Dados de Viagem');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Viagens'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                itemCount: _viagens.length + _viagensAtipicas.length,
+                itemBuilder: (context, index) {
+                  if (index < _viagens.length) {
+                    return ListTile(
+                      title: Text(
+                          '${_viagens[index].origem} → ${_viagens[index].destino}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.remove),
+                            onPressed: () => _decrementarViagem(index),
+                          ),
+                          Text('${_viagens[index].contador}'),
+                          IconButton(
+                            icon: Icon(Icons.add),
+                            onPressed: () => _incrementarViagem(index),
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    int atipicaIndex = index - _viagens.length;
+                    ViagemAtipica atipica = _viagensAtipicas[atipicaIndex];
+                    return ListTile(
+                      title: Text('Viagem Atípica ${atipica.id}'),
+                      subtitle: TextField(
+                        controller: atipica.observacaoController,
+                        decoration:
+                            InputDecoration(labelText: 'Observação'),
+                        onChanged: (value) {
+                        // Chame o método _salvarDados sempre que o texto for alterado
+                        _salvarDados();
+                      },
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(Icons.remove_circle, color: Colors.red),
+                        onPressed: () {
+                          _removerViagemAtipica(atipica.id);
+                        },
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ElevatedButton(
+                  onPressed: _adicionarViagemAtipica,
+                  child: Text('+ Adicionar Viagem Atípica'),
+                ),
+                ElevatedButton(
+                  onPressed: _finalizarViagem,
+                  child: Text('Finalizar'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ViagemPredefinida {
+  final String origem;
+  final String destino;
+  int contador;
+
+  ViagemPredefinida({
+    required this.origem,
+    required this.destino,
+    this.contador = 0,
+  });
+}
+
+class ViagemAtipica {
+  final int id;
+  final TextEditingController observacaoController;
+  
+  ViagemAtipica({
+    required this.id,
+    required this.observacaoController,
+  });
+}
