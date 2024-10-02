@@ -637,12 +637,20 @@ class _ViagensScreenState extends State<ViagensScreen> {
     _salvarDados();
   }
 
-  void _removerViagemAtipica(int id) {
-    setState(() {
-      _viagensAtipicas.removeWhere((viagem) => viagem.id == id);
-    });
-    _salvarDados();
-  }
+void _removerViagemAtipica(int id) {
+  setState(() {
+    _viagensAtipicas.removeWhere((viagem) => viagem.id == id);
+    
+    // Recalcula os IDs das viagens atípicas após a remoção
+    for (int i = 0; i < _viagensAtipicas.length; i++) {
+      _viagensAtipicas[i].id = i + 1;
+    }
+
+    _contadorAtipicas = _viagensAtipicas.length; // Atualiza o contador de viagens atípicas
+  });
+
+  _salvarDados(); // Salva os dados após a remoção
+}
 
   void _incrementarViagem(int index) {
     setState(() {
@@ -800,13 +808,13 @@ ${kmFinal != null ? 'KM Final: $kmFinal' : ''}
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: Icon(Icons.remove, color: Colors.red),
+                            icon: Icon(Icons.remove),
                             onPressed: () => _mostrarDialogoConfirmacao(
                               context, () => _decrementarViagem(index), "Deseja remover uma viagem?"),
                           ),
                           Text('${_viagens[index].contador}'),
                           IconButton(
-                            icon: Icon(Icons.add, color: Colors.green),
+                            icon: Icon(Icons.add),
                             onPressed: () => _mostrarDialogoConfirmacao(
                               context, () => _incrementarViagem(index), "Deseja adicionar uma viagem?"),
                           ),
@@ -831,6 +839,7 @@ ${kmFinal != null ? 'KM Final: $kmFinal' : ''}
                         icon: Icon(Icons.remove_circle, color: Colors.red),
                         onPressed: () {
                           _removerViagemAtipica(atipica.id);
+                          _salvarDados();
                         },
                       ),
                     );
@@ -874,8 +883,8 @@ void _mostrarDialogoConfirmacao(BuildContext context, VoidCallback acao, String 
             children: <Widget>[
               Center(
                 child: Text(
-                  'Alerta',
-                  style: TextStyle(color: Colors.black), // Cor do título
+                  'Confirmar',
+                  style: TextStyle(color: Colors.black, fontSize: 24.0, fontWeight: FontWeight.bold), // Cor do título
                   textAlign: TextAlign.center, // Centraliza o título
                 ),
               ),
@@ -929,7 +938,7 @@ class ViagemPredefinida {
 }
 
 class ViagemAtipica {
-  final int id;
+  int id;
   final TextEditingController observacaoController;
   
   ViagemAtipica({
