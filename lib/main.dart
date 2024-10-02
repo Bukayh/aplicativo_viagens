@@ -35,19 +35,20 @@ class _NomeColaboradorScreenState extends State<NomeColaboradorScreen> {
   String? _maquinaSelecionada;
 
   final List<String> _maquinasCaminhoes = [
-    'RSC2G43',
-    'RSC2H73',
-    'RSC7H05',
-    'RSD-8B37',
-    'RSD-8B87',
-    'Pipa',
+    'CB-101 (2711)',
+    'CB-102 (2732)',
+    'CB-172 (3294)',
+    'CB-180 (3671)',
+    'CB-182 (3668)',
+    'CP-501',
   ];
 
   final List<String> _maquinasCarregadeirasEscavadeiras = [
-    'Carregadeira 556',
-    'Carregadeira 580',
-    'Escavadeira 250',
-    'Escavadeira 380',
+    'CA-301 (2534)',
+    'CA-303 (3006)',
+    'EC-401 (2512)',
+    'EC-402 (2513)',
+    'EC-432 (2748)',
   ];
 
   @override
@@ -696,6 +697,13 @@ void _removerViagemAtipica(int id) {
                   keyboardType: TextInputType.number,
                 ),
                 SizedBox(height: 20),
+                if (widget.kmInicial != null)
+                  TextField(
+                    controller: _kmFinalController,
+                    decoration: InputDecoration(labelText: 'KM Final'),
+                    keyboardType: TextInputType.number,
+                  ),
+                                  SizedBox(height: 20),
                 TextField(
                   controller: _horaFinalController,
                   decoration: InputDecoration(labelText: 'Hora Final'),
@@ -713,13 +721,6 @@ void _removerViagemAtipica(int id) {
                     }
                   },
                 ),
-                SizedBox(height: 20),
-                if (widget.kmInicial != null)
-                  TextField(
-                    controller: _kmFinalController,
-                    decoration: InputDecoration(labelText: 'KM Final'),
-                    keyboardType: TextInputType.number,
-                  ),
               ],
             ),
           ),
@@ -751,7 +752,7 @@ void _removerViagemAtipica(int id) {
   }) async {
     String dados = '''
 Nome: ${widget.nome}
-Máquina: ${widget.maquina}
+Equipamento: ${widget.maquina}
 Horímetro Inicial: ${widget.horimetroInicial}
 ${widget.kmInicial != null ? 'KM Inicial: ${widget.kmInicial}' : ''}
 Turno: ${widget.turno}
@@ -775,8 +776,8 @@ Viagens:
 
     dados += '''
 Horímetro Final: $horimetroFinal
-Hora Final: $horaFinal
 ${kmFinal != null ? 'KM Final: $kmFinal' : ''}
+Hora Final: $horaFinal
 ''';
 
     // Salvar os dados usando shared_preferences
