@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 void main() {
   runApp(MyApp());
@@ -551,6 +552,14 @@ class ViagensScreen extends StatefulWidget {
     required this.horaInicial,
   });
 
+  final List<String> _listaEquipamentos = [
+    'CA-301 (2534)',
+    'CA-303 (3006)',
+    'EC-401 (2512)',
+    'EC-402 (2513)',
+    'EC-432 (2748)',
+  ];
+
   @override
   _ViagensScreenState createState() => _ViagensScreenState();
 }
@@ -569,7 +578,6 @@ class _ViagensScreenState extends State<ViagensScreen> {
     ViagemPredefinida(origem: 'DECAPE', destino: 'BOTA FORA'),
     ViagemPredefinida(origem: 'CASCALHO', destino: 'ESTRADAS'),
   ];
-
   List<ViagemPredefinida> _viagens = [];
   List<ViagemAtipica> _viagensAtipicas = [];
   int _contadorAtipicas = 0;
@@ -581,16 +589,20 @@ class _ViagensScreenState extends State<ViagensScreen> {
           origem: viagem.origem,
           destino: viagem.destino,
           contador: 0,
+          maquinaSelecionada: null, // Inicialmente sem máquina selecionada
         )).toList();
     _carregarDados();
+    _carregarDados2();
   }
- Future<void> _carregarDados() async {
+
+  Future<void> _carregarDados() async {
     final prefs = await SharedPreferences.getInstance();
 
     // Carregar contadores das viagens predefinidas
     for (var i = 0; i < _viagens.length; i++) {
       setState(() {
         _viagens[i].contador = prefs.getInt('viagem_${i}_contador') ?? 0;
+        _viagens[i].maquinaSelecionada = prefs.getString('viagem_${i}_maquina');
       });
     }
 
@@ -607,56 +619,100 @@ class _ViagensScreenState extends State<ViagensScreen> {
           observacaoController: TextEditingController(
             text: prefs.getString('viagem_atipica_${i}') ?? '',
           ),
+          maquinaSelecionada: prefs.getString('viagem_atipica_${i}_maquina'),
         ));
       });
     }
   }
 
-  Future<void> _salvarDados() async {
-    final prefs = await SharedPreferences.getInstance();
+Future<void> _salvarDados() async {
+  final prefs = await SharedPreferences.getInstance();
 
-    // Salvar contadores das viagens predefinidas
-    for (var i = 0; i < _viagens.length; i++) {
-      await prefs.setInt('viagem_${i}_contador', _viagens[i].contador);
-    }
+  // Salvar contadores das viagens predefinidas e a máquina selecionada
+  for (var i = 0; i < _viagens.length; i++) {
+    await prefs.setInt('viagem_${i}_contador', _viagens[i].contador);
 
-    // Salvar viagens atípicas
-    await prefs.setInt('contador_atipicas', _contadorAtipicas);
-    for (var i = 0; i < _viagensAtipicas.length; i++) {
-      await prefs.setString('viagem_atipica_${i}', _viagensAtipicas[i].observacaoController.text);
+    // Verifica se a máquina foi selecionada antes de salvar
+    if (_viagens[i].maquinaSelecionada != null && _viagens[i].maquinaSelecionada!.isNotEmpty) {
+      await prefs.setString('viagem_${i}_maquina', _viagens[i].maquinaSelecionada!);
+    } else {
+      await prefs.remove('viagem_${i}_maquina'); // Remove se não houver máquina selecionada
     }
   }
+  // Salvar viagens atípicas e a máquina selecionada
+  await prefs.setInt('contador_atipicas', _contadorAtipicas);
+  for (var i = 0; i < _viagensAtipicas.length; i++) {
+    await prefs.setString('viagem_atipica_${i}', _viagensAtipicas[i].observacaoController.text);
+
+    // Verifica se a máquina foi selecionada antes de salvar
+    if (_viagensAtipicas[i].maquinaSelecionada != null && _viagensAtipicas[i].maquinaSelecionada!.isNotEmpty) {
+      await prefs.setString('viagem_atipica_${i}_maquina', _viagensAtipicas[i].maquinaSelecionada!);
+    } else {
+      await prefs.remove('viagem_atipica_${i}_maquina'); // Remove se não houver máquina selecionada
+    }
+  }
+}
+// Função para salvar os dados no SharedPreferences
+Future<void> _salvarDados2() async {
+  final prefs = await SharedPreferences.getInstance();
+  List<String> viagensEncoded = _viagens.map((viagem) {
+    return jsonEncode({
+      'origem': viagem.origem,
+      'destino': viagem.destino,
+      'contador': viagem.contador,
+      'maquinaSelecionada': viagem.maquinaSelecionada,
+    });
+  }).toList();
+  await prefs.setStringList('viagens_salvas', viagensEncoded);
+}
+
+// Função para carregar os dados do SharedPreferences
+Future<void> _carregarDados2() async {
+  final prefs = await SharedPreferences.getInstance();
+  List<String>? viagensEncoded = prefs.getStringList('viagens_salvas');
+  if (viagensEncoded != null) {
+    setState(() {
+      _viagens = viagensEncoded.map((viagemStr) {
+        Map<String, dynamic> viagemMap = jsonDecode(viagemStr);
+        return ViagemPredefinida(
+          origem: viagemMap['origem'],
+          destino: viagemMap['destino'],
+          contador: viagemMap['contador'],
+          maquinaSelecionada: viagemMap['maquinaSelecionada'],
+        );
+      }).toList();
+    });
+  }
+}
   void _adicionarViagemAtipica() {
     setState(() {
       _contadorAtipicas++;
       _viagensAtipicas.add(ViagemAtipica(
         id: _contadorAtipicas,
         observacaoController: TextEditingController(),
+        maquinaSelecionada: null, // Inicialmente sem máquina selecionada
       ));
     });
     _salvarDados();
   }
 
-void _removerViagemAtipica(int id) {
-  setState(() {
-    _viagensAtipicas.removeWhere((viagem) => viagem.id == id);
-    
-    // Recalcula os IDs das viagens atípicas após a remoção
-    for (int i = 0; i < _viagensAtipicas.length; i++) {
-      _viagensAtipicas[i].id = i + 1;
-    }
-
-    _contadorAtipicas = _viagensAtipicas.length; // Atualiza o contador de viagens atípicas
-  });
-
-  _salvarDados(); // Salva os dados após a remoção
-}
+  void _removerViagemAtipica(int id) {
+    setState(() {
+      _viagensAtipicas.removeWhere((viagem) => viagem.id == id);
+      for (int i = 0; i < _viagensAtipicas.length; i++) {
+        _viagensAtipicas[i].id = i + 1;
+      }
+      _contadorAtipicas = _viagensAtipicas.length;
+    });
+    _salvarDados();
+  }
 
   void _incrementarViagem(int index) {
     setState(() {
       _viagens[index].contador++;
     });
     _salvarDados();
+    _salvarDados2();
   }
 
   void _decrementarViagem(int index) {
@@ -666,9 +722,11 @@ void _removerViagemAtipica(int id) {
       }
     });
     _salvarDados();
+    _salvarDados2();
   }
 
   void _finalizarViagem() {
+    // A lógica da finalização continua a mesma
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -765,12 +823,15 @@ Viagens:
       if (viagem.contador > 0) {
         dados +=
             '- ${viagem.origem} → ${viagem.destino} x${viagem.contador}\n';
+        if (viagem.maquinaSelecionada != null && viagem.maquinaSelecionada!.isNotEmpty) {
+          dados += '  Máquina: ${viagem.maquinaSelecionada}\n';
+      }
       }
     }
 
     for (var atipica in _viagensAtipicas) {
       dados +=
-          '- Viagem Atípica ${atipica.id}: ${atipica.observacaoController.text}\n';
+          'OBESERVAÇÃO ${atipica.id}: \n"${atipica.observacaoController.text}"\n';
     }
 
     dados += '''
@@ -791,6 +852,12 @@ Hora Final: $horaFinal
     return Scaffold(
       appBar: AppBar(
         title: Text('Viagens'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.add), // Ícone de adicionar
+            onPressed: _adicionarViagemPredefinida, // Chama a função para adicionar viagem
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -801,22 +868,44 @@ Hora Final: $horaFinal
                 itemCount: _viagens.length + _viagensAtipicas.length,
                 itemBuilder: (context, index) {
                   if (index < _viagens.length) {
+                    // Viagem Predefinida com Dropdown para selecionar máquina
                     return ListTile(
-                      title: Text(
-                          '${_viagens[index].origem} → ${_viagens[index].destino}'),
+                      title: Text('${_viagens[index].origem} → ${_viagens[index].destino}'),
+                      subtitle: DropdownButton<String>(
+                        hint: Text('Selecione a máquina'),
+                        value: _viagens[index].maquinaSelecionada,
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _viagens[index].maquinaSelecionada = newValue;
+                          });
+                          _salvarDados();
+                        },
+                        items: widget._listaEquipamentos.map((String maquina) {
+                          return DropdownMenuItem<String>(
+                            value: maquina,
+                            child: Text(maquina),
+                          );
+                        }).toList(),
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             icon: Icon(Icons.remove),
                             onPressed: () => _mostrarDialogoConfirmacao(
-                              context, () => _decrementarViagem(index), "Deseja remover uma viagem?"),
+                              context,
+                              () => _decrementarViagem(index),
+                              "Deseja remover uma viagem?",
+                            ),
                           ),
                           Text('${_viagens[index].contador}'),
                           IconButton(
                             icon: Icon(Icons.add),
                             onPressed: () => _mostrarDialogoConfirmacao(
-                              context, () => _incrementarViagem(index), "Deseja adicionar uma viagem?"),
+                              context,
+                              () => _incrementarViagem(index),
+                              "Deseja adicionar uma viagem?",
+                            ),
                           ),
                         ],
                       ),
@@ -825,15 +914,17 @@ Hora Final: $horaFinal
                     int atipicaIndex = index - _viagens.length;
                     ViagemAtipica atipica = _viagensAtipicas[atipicaIndex];
                     return ListTile(
-                      title: Text('Viagem Atípica ${atipica.id}'),
-                      subtitle: TextField(
-                        controller: atipica.observacaoController,
-                        decoration:
-                            InputDecoration(labelText: 'Observação'),
-                        onChanged: (value) {
-                        // Chame o método _salvarDados sempre que o texto for alterado
-                        _salvarDados();
-                      },
+                      title: Text('OBSERVAÇÃO ${atipica.id}'),
+                      subtitle: Column(
+                        children: [
+                          TextField(
+                            controller: atipica.observacaoController,
+                            decoration: InputDecoration(labelText: 'Observação'),
+                            onChanged: (value) {
+                              _salvarDados();
+                            },
+                          ),
+                        ],
                       ),
                       trailing: IconButton(
                         icon: Icon(Icons.remove_circle, color: Colors.red),
@@ -852,7 +943,7 @@ Hora Final: $horaFinal
               children: [
                 ElevatedButton(
                   onPressed: _adicionarViagemAtipica,
-                  child: Text('+ Adicionar Viagem Atípica'),
+                  child: Text('+ Adicionar uma observação'),
                 ),
                 ElevatedButton(
                   onPressed: _finalizarViagem,
@@ -865,7 +956,64 @@ Hora Final: $horaFinal
       ),
     );
   }
+  void _adicionarViagemPredefinida() {
+    String? origem;
+    String? destino;
+    String? maquinaSelecionada;
+
+showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Adicionar Viagem Extra'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                decoration: InputDecoration(labelText: 'Origem'),
+                onChanged: (value) {
+                  origem = value;
+                },
+              ),
+              TextField(
+                decoration: InputDecoration(labelText: 'Destino'),
+                onChanged: (value) {
+                  destino = value;
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (origem != null && destino != null) {
+                  setState(() {
+                    _viagens.add(ViagemPredefinida(
+                      origem: origem!,
+                      destino: destino!,
+                      contador: 0,
+                      maquinaSelecionada: maquinaSelecionada,
+                    ));
+                  });
+                  _salvarDados2(); // Salvar os dados após a adição
+                  Navigator.of(context).pop(); // Fechar o diálogo
+                }
+              },
+              child: Text('Adicionar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Fechar o diálogo
+              },
+              child: Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
+
 void _mostrarDialogoConfirmacao(BuildContext context, VoidCallback acao, String mensagem) {
   showDialog(
     context: context,
@@ -923,26 +1071,28 @@ void _mostrarDialogoConfirmacao(BuildContext context, VoidCallback acao, String 
     },
   );
 }
-
-
 class ViagemPredefinida {
   final String origem;
   final String destino;
   int contador;
+  String? maquinaSelecionada; // Máquina selecionada para a viagem
 
   ViagemPredefinida({
     required this.origem,
     required this.destino,
     this.contador = 0,
+    this.maquinaSelecionada, // Inicialmente null
   });
 }
 
 class ViagemAtipica {
   int id;
   final TextEditingController observacaoController;
-  
+  String? maquinaSelecionada; // Máquina selecionada para a viagem atípica
+
   ViagemAtipica({
     required this.id,
     required this.observacaoController,
+    this.maquinaSelecionada, // Inicialmente null
   });
 }
