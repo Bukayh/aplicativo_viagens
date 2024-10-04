@@ -40,7 +40,7 @@ class _NomeColaboradorScreenState extends State<NomeColaboradorScreen> {
     'CB-172 (3294)',
     'CB-180 (3671)',
     'CB-182 (3668)',
-    'CP-501',
+    'CP-501 (0672)',
   ];
 
   final List<String> _maquinasCarregadeirasEscavadeiras = [
@@ -86,9 +86,8 @@ class _NomeColaboradorScreenState extends State<NomeColaboradorScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.refresh), // Ícone para resetar
-            onPressed: () {
-              _clearData(); // Chama a função de resetar os dados
-            },
+            onPressed: () => _mostrarDialogoConfirmacao(
+            context, () => _clearData(), "Deseja resetar os dados?"),
             tooltip: 'Resetar', // Exibe uma dica ao passar o mouse ou tocar
           ),
         ],
@@ -99,7 +98,7 @@ class _NomeColaboradorScreenState extends State<NomeColaboradorScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             DropdownButtonFormField<String>(
-              decoration: InputDecoration(labelText: 'Selecione a máquina'),
+              decoration: InputDecoration(labelText: 'Selecione o equipamento'),
               value: _maquinaSelecionada,
               items: [
                 ..._maquinasCaminhoes,
@@ -152,7 +151,7 @@ class _NomeColaboradorScreenState extends State<NomeColaboradorScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content:
-                          Text('Por favor, informe o nome e selecione a máquina.'),
+                          Text('Por favor, informe o nome e selecione o equipamento.'),
                     ),
                   );
                   _saveData();
