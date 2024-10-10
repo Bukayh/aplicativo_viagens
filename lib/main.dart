@@ -737,12 +737,6 @@ Future<void> _carregarDados2() async {
         final TextEditingController _kmFinalController =
             TextEditingController();
 
-        _horimetroFinalController.text = widget.horimetroInicial;
-        _horaFinalController.text = widget.horaInicial;
-        if (widget.kmInicial != null) {
-          _kmFinalController.text = widget.kmInicial!;
-        }
-
         return AlertDialog(
           title: Text('Finalizar Viagem'),
           content: SingleChildScrollView(
@@ -986,6 +980,12 @@ showDialog(
           actions: [
             TextButton(
               onPressed: () {
+                Navigator.of(context).pop(); // Fechar o diálogo
+              },
+              child: Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
                 if (origem != null && destino != null) {
                   setState(() {
                     _viagens.add(ViagemPredefinida(
@@ -1001,12 +1001,7 @@ showDialog(
               },
               child: Text('Adicionar'),
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Fechar o diálogo
-              },
-              child: Text('Cancelar'),
-            ),
+
           ],
         );
       },
